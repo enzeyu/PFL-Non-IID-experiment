@@ -23,9 +23,13 @@ class Server(object):
         self.learning_rate = args.local_learning_rate
         self.global_model = copy.deepcopy(args.model)
         self.num_clients = args.num_clients
+        # 被选择比例
         self.join_ratio = args.join_ratio
+        # 随机被选择的比例
         self.random_join_ratio = args.random_join_ratio
+        # 被选中的客户端数目
         self.num_join_clients = int(self.num_clients * self.join_ratio)
+        # 当前被选中的客户端数目，等于self.num_join_clients
         self.current_num_join_clients = self.num_join_clients
         self.algorithm = args.algorithm
         self.time_select = args.time_select
@@ -92,17 +96,22 @@ class Server(object):
             self.send_slow_rate)
 
     def select_clients(self):
+        # 如果随机客户比例为true，进行不放回抽样，在[选中客户端数目，客户端总数]里抽样一个数字，作为抽样客户端总数
+        # else后的相比之前的在数目上更固定，因为前者不需要采样
         if self.random_join_ratio:
             self.current_num_join_clients = np.random.choice(range(self.num_join_clients, self.num_clients+1), 1, replace=False)[0]
         else:
             self.current_num_join_clients = self.num_join_clients
+        # 从客户端不放回抽样self.current_num_join_clients个客户端
         selected_clients = list(np.random.choice(self.clients, self.current_num_join_clients, replace=False))
 
         return selected_clients
 
+    # 没有考虑通信代价
     def send_models(self):
+        # 发送模型，首先判定clients的数目
         assert (len(self.clients) > 0)
-
+        # 每个客户端，记录开始使劲按，然后拷贝全局模型参数，轮数+1，总的代价+1
         for client in self.clients:
             start_time = time.time()
             
@@ -112,8 +121,10 @@ class Server(object):
             client.send_time_cost['total_cost'] += 2 * (time.time() - start_time)
 
     def receive_models(self):
+        # 接受模型，首先检查被选中客户端的数目
         assert (len(self.selected_clients) > 0)
-
+        # 从self.selected_clients里随机采样 int((1-self.client_drop_rate) * self.current_num_join_clients) 个样本 作为活跃客户端
+        # client_drop_rate如果为0，则代表都活跃，从selected_clients列表里选择出self.current_num_join_clients个客户端即可
         active_clients = random.sample(
             self.selected_clients, int((1-self.client_drop_rate) * self.current_num_join_clients))
 
@@ -121,6 +132,8 @@ class Server(object):
         self.uploaded_weights = []
         self.uploaded_models = []
         tot_samples = 0
+        # 对每个活跃的客户端，首先获取时间代价，时间代价=平均训练时间+平均发送时间
+        # 如果时间代价小于阈值，则将这个客户端的id、训练样本(权重)，模型加入到列表里
         for client in active_clients:
             try:
                 client_time_cost = client.train_time_cost['total_cost'] / client.train_time_cost['num_rounds'] + \
@@ -132,6 +145,7 @@ class Server(object):
                 self.uploaded_ids.append(client.id)
                 self.uploaded_weights.append(client.train_samples)
                 self.uploaded_models.append(client.model)
+        # 计算所有客户端的权重，等于一个客户端样本数目/被选中的总数目
         for i, w in enumerate(self.uploaded_weights):
             self.uploaded_weights[i] = w / tot_samples
 
@@ -226,6 +240,7 @@ class Server(object):
 
     # evaluate selected clients
     def evaluate(self, acc=None, loss=None):
+        # 获得训练结果，测试结果
         stats = self.test_metrics()
         stats_train = self.train_metrics()
 

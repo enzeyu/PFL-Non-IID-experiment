@@ -76,7 +76,7 @@ def run(args):
     reporter = MemReporter()
     # args.model是模型名字
     model_str = args.model
-
+    # 设置运行次数，为args.times-args.prev
     for i in range(args.prev, args.times):
         print(f"\n============= Running time: {i}th =============")
         print("Creating server and clients ...")
@@ -332,7 +332,7 @@ def run(args):
         server.train()
         # 选定模型和算法后，记录当前round训练所花费的时间
         time_list.append(time.time()-start)
-    # args.times - args.prev的总round平均代价，四舍五入2位
+    # args.times - args.prev的总次数平均代价，四舍五入2位
     print(f"\nAverage time cost: {round(np.average(time_list), 2)}s.")
     
 
@@ -391,6 +391,7 @@ if __name__ == "__main__":
     parser.add_argument('-nnc', "--num_new_clients", type=int, default=0)
     parser.add_argument('-fte', "--fine_tuning_epoch", type=int, default=0)
     # practical
+    # 参与训练但是会挂掉的客户端比例，即client_drop_rate
     parser.add_argument('-cdr', "--client_drop_rate", type=float, default=0.0,
                         help="Rate for clients that train but drop out")
     parser.add_argument('-tsr', "--train_slow_rate", type=float, default=0.0,
