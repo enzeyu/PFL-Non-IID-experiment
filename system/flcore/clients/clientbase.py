@@ -9,7 +9,7 @@ from sklearn.preprocessing import label_binarize
 from sklearn import metrics
 from utils.data_utils import read_client_data
 
-
+# 联邦学习下的client基类
 class Client(object):
     """
     Base class for clients in federated learning.

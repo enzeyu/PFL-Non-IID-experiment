@@ -42,6 +42,7 @@ from flcore.servers.serverpcl import FedPCL
 from flcore.servers.servercp import FedCP
 from flcore.servers.servergpfl import GPFL
 
+# 能导入的所有模型
 from flcore.trainmodel.models import *
 
 from flcore.trainmodel.bilstm import *
@@ -53,37 +54,47 @@ from flcore.trainmodel.transformer import *
 from utils.result_utils import average_data
 from utils.mem_utils import MemReporter
 
+# 创建一个日志记录器（logger）对象，设置日志级别
 logger = logging.getLogger()
 logger.setLevel(logging.ERROR)
 
+# 禁用警告
 warnings.simplefilter("ignore")
+# 使代码的运行在相同的种子下产生相同的随机结果
 torch.manual_seed(0)
 
 # hyper-params for Text tasks
+# 对于文本任务所设置的超参数
 vocab_size = 98635
 max_len=200
 emb_dim=32
 
 def run(args):
-
+    # 时间列表，记录每round的训练时间
     time_list = []
+    # 定义内存报告
     reporter = MemReporter()
+    # args.model是模型名字
     model_str = args.model
 
     for i in range(args.prev, args.times):
         print(f"\n============= Running time: {i}th =============")
         print("Creating server and clients ...")
-        start = time.time()
+        # 设置开始时间
+        start = time.time() 
 
         # Generate args.model
+        # 逻辑回归模型，是凸的
         if model_str == "mlr": # convex
+            # mnist是灰度的，故1*28*28的
             if "mnist" in args.dataset:
                 args.model = Mclr_Logistic(1*28*28, num_classes=args.num_classes).to(args.device)
+            # cifar10是三通道彩色的，故3*32*32的
             elif "Cifar10" in args.dataset:
                 args.model = Mclr_Logistic(3*32*32, num_classes=args.num_classes).to(args.device)
             else:
                 args.model = Mclr_Logistic(60, num_classes=args.num_classes).to(args.device)
-
+        # FedAvgCNN模型
         elif model_str == "cnn": # non-convex
             if "mnist" in args.dataset:
                 args.model = FedAvgCNN(in_features=1, num_classes=args.num_classes, dim=1024).to(args.device)
@@ -164,14 +175,18 @@ def run(args):
                 args.model = HARCNN(9, dim_hidden=3712, num_classes=args.num_classes, conv_kernel_size=(1, 9), pool_kernel_size=(1, 2)).to(args.device)
 
         else:
-            raise NotImplementedError
+            raise NotImplementedError   # 找不到就报NotImplementedError
 
         print(args.model)
 
         # select algorithm
+        # 选择算法，algorithm对应若干实现，i是轮数
         if args.algorithm == "FedAvg":
+            # 创建一个对象的深拷贝
             args.head = copy.deepcopy(args.model.fc)
-            args.model.fc = nn.Identity()
+            # 创建无操作层 nn.Identity()
+            args.model.fc = nn.Identity() 
+            # 分割原始模型为 一个base 和 一个head
             args.model = BaseHeadSplit(args.model, args.head)
             server = FedAvg(args, i)
 
@@ -313,15 +328,16 @@ def run(args):
             
         else:
             raise NotImplementedError
-
+        # 开始训练
         server.train()
-
+        # 选定模型和算法后，记录当前round训练所花费的时间
         time_list.append(time.time()-start)
-
+    # args.times - args.prev的总round平均代价，四舍五入2位
     print(f"\nAverage time cost: {round(np.average(time_list), 2)}s.")
     
 
     # Global average
+    # 全局平均
     average_data(dataset=args.dataset, algorithm=args.algorithm, goal=args.goal, times=args.times)
 
     print("All done!")
@@ -330,6 +346,7 @@ def run(args):
 
 
 if __name__ == "__main__":
+    # 总的开始时间
     total_start = time.time()
 
     parser = argparse.ArgumentParser()
@@ -437,47 +454,57 @@ if __name__ == "__main__":
     # GPFL
     parser.add_argument('-lamr', "--lamda_reg", type=float, default=0.0)
 
-
+    # 解析命令行参数，并将其转换为 Python 对象
     args = parser.parse_args()
 
     os.environ["CUDA_VISIBLE_DEVICES"] = args.device_id
 
+    # 检查cuda是否可用
     if args.device == "cuda" and not torch.cuda.is_available():
         print("\ncuda is not avaiable.\n")
         args.device = "cpu"
 
     print("=" * 50)
-
-    print("Algorithm: {}".format(args.algorithm))
+    # 输出 算法、本地batch size、本地步骤、本地学习率、本地学习率衰减
+    print("Algorithm: {}".format(args.algorithm))    
     print("Local batch size: {}".format(args.batch_size))
     print("Local steps: {}".format(args.local_epochs))
     print("Local learing rate: {}".format(args.local_learning_rate))
     print("Local learing rate decay: {}".format(args.learning_rate_decay))
+    # 如果学习率衰减，则输出衰减系数
     if args.learning_rate_decay:
         print("Local learing rate decay gamma: {}".format(args.learning_rate_decay_gamma))
+    # 输出 客户端总数、每轮加入客户端数目？客户端是否随机加入、客户端drop rate？每轮是否按照时间成本分组选择客户？
     print("Total number of clients: {}".format(args.num_clients))
     print("Clients join in each round: {}".format(args.join_ratio))
     print("Clients randomly join: {}".format(args.random_join_ratio))
     print("Client drop rate: {}".format(args.client_drop_rate))
     print("Client select regarding time: {}".format(args.time_select))
+    # 如果根据时间成本选择客户，则输出时间阈值
     if args.time_select:
         print("Time threthold: {}".format(args.time_threthold))
+    # 输出运行轮数上界、数据集、类别数目、模型、使用设备、是否使用隐私
     print("Running times: {}".format(args.times))
     print("Dataset: {}".format(args.dataset))
     print("Number of classes: {}".format(args.num_classes))
     print("Backbone: {}".format(args.model))
     print("Using device: {}".format(args.device))
     print("Using DP: {}".format(args.privacy))
+    # 如果使用隐私
     if args.privacy:
         print("Sigma for DP: {}".format(args.dp_sigma))
+    # 输出auto_break，即定义是否global_rounds轮后自动退出
     print("Auto break: {}".format(args.auto_break))
     if not args.auto_break:
         print("Global rounds: {}".format(args.global_rounds))
+    # 如果设备是cuda
     if args.device == "cuda":
         print("Cuda device id: {}".format(os.environ["CUDA_VISIBLE_DEVICES"]))
     print("DLG attack: {}".format(args.dlg_eval))
+    # 如果DLG攻击有gap
     if args.dlg_eval:
         print("DLG attack round gap: {}".format(args.dlg_gap))
+    # 输出新客户端数目 和 新客户端的微调epoch
     print("Total number of new clients: {}".format(args.num_new_clients))
     print("Fine tuning epoches on new clients: {}".format(args.fine_tuning_epoch))
     print("=" * 50)
@@ -498,6 +525,8 @@ if __name__ == "__main__":
     #     on_trace_ready=torch.profiler.tensorboard_trace_handler('./log')
     #     ) as prof:
     # with torch.autograd.profiler.profile(profile_memory=True) as prof:
+    
+    # 运行
     run(args)
 
     

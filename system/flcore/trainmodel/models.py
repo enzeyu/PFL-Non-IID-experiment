@@ -13,7 +13,7 @@ class BaseHeadSplit(nn.Module):
 
         self.base = base
         self.head = head
-        
+    # 输入x先经过base，再经过head    
     def forward(self, x):
         out = self.base(x)
         out = self.head(out)
