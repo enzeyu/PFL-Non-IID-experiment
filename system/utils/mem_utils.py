@@ -187,6 +187,8 @@ class MemReporter():
                           ' invisible gradient buffer tensors')
             print('-'*LEN)
 
+    # 打印内存使用情况
+    # verbose 展示信息详细程度，device指定运行的设备
     def report(self, verbose: bool = False, device: Optional[torch.device] = None) -> None:
         """Interface for end-users to directly print the memory usage
 
@@ -198,6 +200,9 @@ class MemReporter():
             print the memory usage on CUDA devices.
 
         """
+        # 收集一些数据或张量
         self.collect_tensor()
+        # 计算数据统计信息，对collect_tensor的信息进行分析，计算均值、方差、最大值、最小值等
         self.get_stats()
+        # 打印统计信息的方法调用
         self.print_stats(verbose, target_device=device)

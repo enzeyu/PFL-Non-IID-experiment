@@ -149,17 +149,22 @@ class Server(object):
         for i, w in enumerate(self.uploaded_weights):
             self.uploaded_weights[i] = w / tot_samples
 
+    # 聚合参数
     def aggregate_parameters(self):
         assert (len(self.uploaded_models) > 0)
-
+        # 深拷贝复制 上传模型 为 全局模型
         self.global_model = copy.deepcopy(self.uploaded_models[0])
+        # 将全局模型的参数设置为0，即param这个张量数据里的元素设置为0
+        # self.global_model.parameters() 是 遍历模型参数的生成器
         for param in self.global_model.parameters():
             param.data.zero_()
-            
+        # 对客户端和其权重，调用add_parameters方法，对参数进行相加
         for w, client_model in zip(self.uploaded_weights, self.uploaded_models):
             self.add_parameters(w, client_model)
 
+    # 具体相加操作，取服务器参数 += 客户端参数
     def add_parameters(self, w, client_model):
+        # 返回 全局服务器的参数 和 客户端的参数（来自self.uploaded_models）
         for server_param, client_param in zip(self.global_model.parameters(), client_model.parameters()):
             server_param.data += client_param.data.clone() * w
 

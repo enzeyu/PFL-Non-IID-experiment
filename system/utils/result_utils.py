@@ -2,7 +2,7 @@ import h5py
 import numpy as np
 import os
 
-
+# 默认python main.py的时候，times传入的是1，因此np.std(max_accuracy)为0
 def average_data(algorithm="", dataset="", goal="", times=10):
     # 测试精度
     test_acc = get_all_results_for_one_algo(algorithm, dataset, goal, times)
